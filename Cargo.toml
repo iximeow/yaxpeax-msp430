@@ -1,0 +1,17 @@
+[package]
+
+name = "yaxpeax-msp430"
+version = "0.0.1"
+authors = [ "iximeow <me@iximeow.net>" ]
+license = "0BSD"
+repository = "msp430-rs"
+description = """
+A rust msp430 decoder (specifically the microcorruption flavor)
+"""
+
+[dependencies]
+yaxpeax-arch = { path = "../../yaxpeax-arch" }
+
+[[test]]
+name = "test"
+path = "test/test.rs"
