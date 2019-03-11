@@ -4,6 +4,7 @@ use yaxpeax_arch::{Arch, Decodable, LengthedInstruction};
 
 mod display;
 
+#[derive(Debug)]
 pub struct MSP430;
 impl Arch for MSP430 {
     type Address = u16;
@@ -35,6 +36,9 @@ impl Instruction {
 
 impl LengthedInstruction for Instruction {
     type Unit = <MSP430 as Arch>::Address;
+    fn min_size() -> Self::Unit {
+        2
+    }
     fn len(&self) -> Self::Unit {
         let mut size = 2;
         match self.operands[0] {
@@ -107,41 +111,41 @@ pub enum Operand {
 }
 
 impl Decodable for Instruction {
-    fn decode<'a, T: IntoIterator<Item=&'a u8>>(bytes: T) -> Option<Self> {
+    fn decode<T: IntoIterator<Item=u8>>(bytes: T) -> Option<Self> {
         let mut instr = Instruction::blank();
         match instr.decode_into(bytes) {
             Some(_) => Some(instr),
             None => None
         }
     }
-    fn decode_into<'a, T: IntoIterator<Item=&'a u8>>(&mut self, bytes: T) -> Option<()> {
+    fn decode_into<T: IntoIterator<Item=u8>>(&mut self, bytes: T) -> Option<()> {
         let mut bytes_iter = bytes.into_iter();
-        let word: Vec<&'a u8> = bytes_iter.by_ref().take(2).collect();
+        let word: Vec<u8> = bytes_iter.by_ref().take(2).collect();
 
         let fullword = match word[..] {
             [] | [_] => { return None; },
-            [low, high] => (*high as u16) << 8 | (*low as u16),
+            [low, high] => (high as u16) << 8 | (low as u16),
             _ => unreachable!()
         };
 
-        fn decode_operand<'a, T: Iterator<Item=&'a u8>>(bytes: &mut T, reg: u8, mode: u8, oper: &mut Operand) -> bool {
+        fn decode_operand<T: Iterator<Item=u8>>(bytes: &mut T, reg: u8, mode: u8, oper: &mut Operand) -> bool {
             *oper = match reg {
                 0 => {
                     if mode == 0 {
                         Operand::Register(reg)
                     } else if mode == 1 {
-                        let next = match bytes.take(2).collect::<Vec<&u8>>()[..] {
+                        let next = match bytes.take(2).collect::<Vec<u8>>()[..] {
                             [] | [_] => { return false; },
-                            [low, high] => { ((*high as u16) << 8) | (*low as u16) },
+                            [low, high] => { ((high as u16) << 8) | (low as u16) },
                             _ => { unreachable!() }
                         };
                         Operand::Symbolic(next)
                     } else if mode == 2 {
                         Operand::RegisterIndirect(reg)
                     } else if mode == 3 {
-                        let next = match bytes.take(2).collect::<Vec<&u8>>()[..] {
+                        let next = match bytes.take(2).collect::<Vec<u8>>()[..] {
                             [] | [_] => { return false; },
-                            [low, high] => { ((*high as u16) << 8) | (*low as u16) },
+                            [low, high] => { ((high as u16) << 8) | (low as u16) },
                             _ => { unreachable!() }
                         };
                         Operand::Immediate(next)
@@ -153,9 +157,9 @@ impl Decodable for Instruction {
                     match mode {
                         0 => { Operand::Register(reg) },
                         1 => {
-                            let next = match bytes.take(2).collect::<Vec<&u8>>()[..] {
+                            let next = match bytes.take(2).collect::<Vec<u8>>()[..] {
                                 [] | [_] => { return false; },
-                                [low, high] => { ((*high as u16) << 8) | (*low as u16) },
+                                [low, high] => { ((high as u16) << 8) | (low as u16) },
                                 _ => { unreachable!() }
                             };
                             Operand::Absolute(next)
@@ -178,9 +182,9 @@ impl Decodable for Instruction {
                     match mode {
                         0 => { Operand::Register(reg) },
                         1 => {
-                            let next = match bytes.take(2).collect::<Vec<&u8>>()[..] {
+                            let next = match bytes.take(2).collect::<Vec<u8>>()[..] {
                                 [] | [_] => { return false; },
-                                [low, high] => { ((*high as u16) << 8) | (*low as u16) },
+                                [low, high] => { ((high as u16) << 8) | (low as u16) },
                                 _ => { unreachable!() }
                             };
                             Operand::Indexed(reg, next)
