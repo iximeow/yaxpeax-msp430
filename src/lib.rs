@@ -1,4 +1,5 @@
 extern crate yaxpeax_arch;
+extern crate termion;
 
 use yaxpeax_arch::{Arch, Decodable, LengthedInstruction};
 
