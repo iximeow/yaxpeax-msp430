@@ -12,7 +12,14 @@ A rust msp430 decoder (specifically the microcorruption flavor)
 [dependencies]
 yaxpeax-arch = { path = "../../yaxpeax-arch" }
 "termion" = "1.4.0"
+"serde" = "*"
+"serde_derive" = "*"
 
 [[test]]
 name = "test"
 path = "test/test.rs"
+
+[features]
+default = []
+
+use-serde = []

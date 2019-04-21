@@ -1,3 +1,10 @@
+#[cfg(feature="use-serde")]
+#[macro_use] extern crate serde_derive;
+#[cfg(feature="use-serde")]
+extern crate serde;
+#[cfg(feature="use-serde")]
+use serde::{Serialize, Deserialize};
+
 extern crate yaxpeax_arch;
 extern crate termion;
 
@@ -5,8 +12,14 @@ use yaxpeax_arch::{Arch, Decodable, LengthedInstruction};
 
 mod display;
 
+#[cfg(feature="use-serde")]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MSP430;
+
+#[cfg(not(feature="use-serde"))]
 #[derive(Debug)]
 pub struct MSP430;
+
 impl Arch for MSP430 {
     type Address = u16;
     type Instruction = Instruction;
