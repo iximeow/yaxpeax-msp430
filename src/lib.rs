@@ -2,8 +2,8 @@
 #[macro_use] extern crate serde_derive;
 #[cfg(feature="use-serde")]
 extern crate serde;
-#[cfg(feature="use-serde")]
-use serde::{Serialize, Deserialize};
+//#[cfg(feature="use-serde")]
+//use serde::{Serialize, Deserialize};
 
 extern crate yaxpeax_arch;
 extern crate termion;

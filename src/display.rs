@@ -1,12 +1,8 @@
 use ::{MSP430, Operand, Opcode, Instruction, Width};
 
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::hash::Hash;
-use std::rc::Rc;
 use std;
-use termion::color;
-use yaxpeax_arch::{Arch, Colorize, ColorSettings, LengthedInstruction, ShowContextual};
+use yaxpeax_arch::{Arch, Colorize, ColorSettings, ShowContextual};
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
@@ -17,7 +13,7 @@ impl Display for Instruction {
 }
 
 impl <T: std::fmt::Write> ShowContextual<<MSP430 as Arch>::Address, [Option<String>], T> for Instruction {
-    fn contextualize(&self, colors: Option<&ColorSettings>, address: <MSP430 as Arch>::Address, context: Option<&[Option<String>]>, out: &mut T) -> std::fmt::Result {
+    fn contextualize(&self, _colors: Option<&ColorSettings>, _address: <MSP430 as Arch>::Address, _context: Option<&[Option<String>]>, out: &mut T) -> std::fmt::Result {
         write!(out, "{}", self.opcode)?;
         match self.op_width {
             Width::B => { write!(out, ".b")? },
@@ -84,7 +80,7 @@ impl Display for Operand {
 }
 
 impl <T: std::fmt::Write> Colorize<T> for Operand {
-    fn colorize(&self, colors: Option<&ColorSettings>, out: &mut T) -> std::fmt::Result {
+    fn colorize(&self, _colors: Option<&ColorSettings>, out: &mut T) -> std::fmt::Result {
         fn signed_hex(num: i16) -> String {
             if num >= 0 {
                 format!("+{:#x}", num)
