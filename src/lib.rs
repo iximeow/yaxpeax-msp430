@@ -8,7 +8,7 @@ extern crate serde;
 extern crate yaxpeax_arch;
 extern crate termion;
 
-use yaxpeax_arch::{Arch, Decodable, LengthedInstruction};
+use yaxpeax_arch::{Arch, Decoder, LengthedInstruction};
 
 mod display;
 
@@ -23,6 +23,7 @@ pub struct MSP430;
 impl Arch for MSP430 {
     type Address = u16;
     type Instruction = Instruction;
+    type Decoder = InstDecoder;
     type Operand = Operand;
 }
 
@@ -124,15 +125,18 @@ pub enum Operand {
     Nothing
 }
 
-impl Decodable for Instruction {
-    fn decode<T: IntoIterator<Item=u8>>(bytes: T) -> Option<Self> {
-        let mut instr = Instruction::blank();
-        match instr.decode_into(bytes) {
-            Some(_) => Some(instr),
+#[derive(Default, Debug)]
+pub struct InstDecoder {}
+
+impl Decoder<Instruction> for InstDecoder {
+    fn decode<T: IntoIterator<Item=u8>>(&self, bytes: T) -> Option<Instruction> {
+        let mut inst = Instruction::blank();
+        match self.decode_into(&mut inst, bytes) {
+            Some(_) => Some(inst),
             None => None
         }
     }
-    fn decode_into<T: IntoIterator<Item=u8>>(&mut self, bytes: T) -> Option<()> {
+    fn decode_into<T: IntoIterator<Item=u8>>(&self, inst: &mut Instruction, bytes: T) -> Option<()> {
         let mut bytes_iter = bytes.into_iter();
         let word: Vec<u8> = bytes_iter.by_ref().take(2).collect();
 
@@ -212,15 +216,15 @@ impl Decodable for Instruction {
             return true;
         }
 
-        self.op_width = Width::W;
+        inst.op_width = Width::W;
 
         match fullword {
             /*
             instrword if instrword < 0x1000 => {
                 // MSP430X instructions go here
-                self.opcode = Opcode::Invalid(instrword);
-                self.operands[0] = Operand::Nothing;
-                self.operands[1] = Operand::Nothing;
+                inst.opcode = Opcode::Invalid(instrword);
+                inst.operands[0] = Operand::Nothing;
+                inst.operands[1] = Operand::Nothing;
                 return None;
             }, */
             instrword if instrword < 0x2000 => {
@@ -228,7 +232,7 @@ impl Decodable for Instruction {
                 let (opcode_idx, operands) = ((instrword & 0x0380) >> 7, instrword & 0x7f);
                 match opcode_idx {
                     x if x < 6 => {
-                        self.opcode = [
+                        inst.opcode = [
                             Opcode::RRC,
                             Opcode::SWPB,
                             Opcode::RRA,
@@ -236,11 +240,11 @@ impl Decodable for Instruction {
                             Opcode::PUSH,
                             Opcode::CALL
                         ][x as usize];
-                        self.op_width = if operands & 0b01000000 == 0 {
+                        inst.op_width = if operands & 0b01000000 == 0 {
                             Width::W
                         } else {
                             if x == 1 || x == 3 || x == 5 {
-                                self.opcode = Opcode::Invalid(instrword);
+                                inst.opcode = Opcode::Invalid(instrword);
                                 return None;
                             }
                             Width:: B
@@ -250,26 +254,26 @@ impl Decodable for Instruction {
                             ((instrword & 0x0030) >> 4) as u8,
                             (instrword & 0x000f) as u8
                         );
-                        if !decode_operand(&mut bytes_iter, source, As, &mut self.operands[0]) {
-                            self.opcode = Opcode::Invalid(instrword);
+                        if !decode_operand(&mut bytes_iter, source, As, &mut inst.operands[0]) {
+                            inst.opcode = Opcode::Invalid(instrword);
                             return None;
                         };
-                        self.operands[1] = Operand::Nothing;
+                        inst.operands[1] = Operand::Nothing;
                         Some(())
                     },
                     6 => {
                         if operands == 0 {
-                            self.opcode = Opcode::RETI;
-                            self.operands[0] = Operand::Nothing;
-                            self.operands[1] = Operand::Nothing;
+                            inst.opcode = Opcode::RETI;
+                            inst.operands[0] = Operand::Nothing;
+                            inst.operands[1] = Operand::Nothing;
                             Some(())
                         } else {
-                            self.opcode = Opcode::Invalid(instrword);
+                            inst.opcode = Opcode::Invalid(instrword);
                             return None;
                         }
                     }
                     7 => {
-                        self.opcode = Opcode::Invalid(instrword);
+                        inst.opcode = Opcode::Invalid(instrword);
                         return None;
                     }
                     _ => {
@@ -279,7 +283,7 @@ impl Decodable for Instruction {
             },
             instrword if instrword < 0x4000 => {
                 let (opcode_idx, offset) = ((instrword & 0x1c00) >> 10, instrword & 0x3ff);
-                self.opcode = [
+                inst.opcode = [
                     Opcode::JNE,
                     Opcode::JEQ,
                     Opcode::JNC,
@@ -289,13 +293,13 @@ impl Decodable for Instruction {
                     Opcode::JL,
                     Opcode::JMP
                 ][opcode_idx as usize];
-                self.operands[0] = Operand::Offset(((offset as i16) << 6) >> 6);
-                self.operands[1] = Operand::Nothing;
+                inst.operands[0] = Operand::Offset(((offset as i16) << 6) >> 6);
+                inst.operands[1] = Operand::Nothing;
                 Some(())
             },
             instrword @ _ => {
                 let (opcode_idx, operands) = ((instrword & 0xf000) >> 12, instrword & 0x0fff);
-                self.opcode = [
+                inst.opcode = [
                     Opcode::MOV,
                     Opcode::ADD,
                     Opcode::ADDC,
@@ -309,7 +313,7 @@ impl Decodable for Instruction {
                     Opcode::XOR,
                     Opcode::AND
                 ][(opcode_idx - 4) as usize];
-                self.op_width = if operands & 0b01000000 == 0 { Width::W } else { Width:: B };
+                inst.op_width = if operands & 0b01000000 == 0 { Width::W } else { Width:: B };
                 #[allow(non_snake_case)]
                 let (source, Ad, As, dest) = (
                     ((instrword & 0x0f00) >> 8) as u8,
@@ -317,12 +321,12 @@ impl Decodable for Instruction {
                     ((instrword & 0x0030) >> 4) as u8,
                     (instrword & 0x000f) as u8
                 );
-                if !decode_operand(&mut bytes_iter, source, As, &mut self.operands[0]) {
-                    self.opcode = Opcode::Invalid(instrword);
+                if !decode_operand(&mut bytes_iter, source, As, &mut inst.operands[0]) {
+                    inst.opcode = Opcode::Invalid(instrword);
                     return None;
                 }
-                if !decode_operand(&mut bytes_iter, dest, Ad, &mut self.operands[1]) {
-                    self.opcode = Opcode::Invalid(instrword);
+                if !decode_operand(&mut bytes_iter, dest, Ad, &mut inst.operands[1]) {
+                    inst.opcode = Opcode::Invalid(instrword);
                     return None;
                 }
                 Some(())
