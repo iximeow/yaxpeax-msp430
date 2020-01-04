@@ -23,6 +23,7 @@ pub struct MSP430;
 impl Arch for MSP430 {
     type Address = u16;
     type Instruction = Instruction;
+    type DecodeError = DecodeError;
     type Decoder = InstDecoder;
     type Operand = Operand;
 }
@@ -125,23 +126,40 @@ pub enum Operand {
     Nothing
 }
 
+#[derive(Debug, PartialEq)]
+pub enum DecodeError {
+    ExhaustedInput,
+    InvalidOpcode,
+    InvalidOperand,
+}
+
+impl yaxpeax_arch::DecodeError for DecodeError {
+    fn data_exhausted(&self) -> bool { self == &DecodeError::ExhaustedInput }
+    fn bad_opcode(&self) -> bool { self == &DecodeError::InvalidOpcode }
+    fn bad_operand(&self) -> bool { self == &DecodeError::InvalidOperand }
+}
+
+impl yaxpeax_arch::Instruction for Instruction {
+    // TODO: this is wrong!!
+    fn well_defined(&self) -> bool { true }
+}
+
 #[derive(Default, Debug)]
 pub struct InstDecoder {}
 
 impl Decoder<Instruction> for InstDecoder {
-    fn decode<T: IntoIterator<Item=u8>>(&self, bytes: T) -> Option<Instruction> {
+    type Error = DecodeError;
+
+    fn decode<T: IntoIterator<Item=u8>>(&self, bytes: T) -> Result<Instruction, Self::Error> {
         let mut inst = Instruction::blank();
-        match self.decode_into(&mut inst, bytes) {
-            Some(_) => Some(inst),
-            None => None
-        }
+        self.decode_into(&mut inst, bytes).map(|_: ()| inst)
     }
-    fn decode_into<T: IntoIterator<Item=u8>>(&self, inst: &mut Instruction, bytes: T) -> Option<()> {
+    fn decode_into<T: IntoIterator<Item=u8>>(&self, inst: &mut Instruction, bytes: T) -> Result<(), Self::Error> {
         let mut bytes_iter = bytes.into_iter();
         let word: Vec<u8> = bytes_iter.by_ref().take(2).collect();
 
         let fullword = match word[..] {
-            [] | [_] => { return None; },
+            [] | [_] => { return Err(DecodeError::ExhaustedInput); },
             [low, high] => (high as u16) << 8 | (low as u16),
             _ => unreachable!()
         };
@@ -245,7 +263,7 @@ impl Decoder<Instruction> for InstDecoder {
                         } else {
                             if x == 1 || x == 3 || x == 5 {
                                 inst.opcode = Opcode::Invalid(instrword);
-                                return None;
+                                return Err(DecodeError::InvalidOpcode);
                             }
                             Width:: B
                         };
@@ -256,25 +274,25 @@ impl Decoder<Instruction> for InstDecoder {
                         );
                         if !decode_operand(&mut bytes_iter, source, As, &mut inst.operands[0]) {
                             inst.opcode = Opcode::Invalid(instrword);
-                            return None;
+                            return Err(DecodeError::InvalidOperand);
                         };
                         inst.operands[1] = Operand::Nothing;
-                        Some(())
+                        Ok(())
                     },
                     6 => {
                         if operands == 0 {
                             inst.opcode = Opcode::RETI;
                             inst.operands[0] = Operand::Nothing;
                             inst.operands[1] = Operand::Nothing;
-                            Some(())
+                            Ok(())
                         } else {
                             inst.opcode = Opcode::Invalid(instrword);
-                            return None;
+                            return Err(DecodeError::InvalidOperand);
                         }
                     }
                     7 => {
                         inst.opcode = Opcode::Invalid(instrword);
-                        return None;
+                        return Err(DecodeError::InvalidOpcode);
                     }
                     _ => {
                         unreachable!();
@@ -295,7 +313,7 @@ impl Decoder<Instruction> for InstDecoder {
                 ][opcode_idx as usize];
                 inst.operands[0] = Operand::Offset(((offset as i16) << 6) >> 6);
                 inst.operands[1] = Operand::Nothing;
-                Some(())
+                Ok(())
             },
             instrword @ _ => {
                 let (opcode_idx, operands) = ((instrword & 0xf000) >> 12, instrword & 0x0fff);
@@ -323,13 +341,13 @@ impl Decoder<Instruction> for InstDecoder {
                 );
                 if !decode_operand(&mut bytes_iter, source, As, &mut inst.operands[0]) {
                     inst.opcode = Opcode::Invalid(instrword);
-                    return None;
+                    return Err(DecodeError::InvalidOperand);
                 }
                 if !decode_operand(&mut bytes_iter, dest, Ad, &mut inst.operands[1]) {
                     inst.opcode = Opcode::Invalid(instrword);
-                    return None;
+                    return Err(DecodeError::InvalidOperand);
                 }
-                Some(())
+                Ok(())
             }
         }
     }
