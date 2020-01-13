@@ -4,10 +4,8 @@ name = "yaxpeax-msp430"
 version = "0.0.1"
 authors = [ "iximeow <me@iximeow.net>" ]
 license = "0BSD"
-repository = "msp430-rs"
-description = """
-A rust msp430 decoder (specifically the microcorruption flavor)
-"""
+repository = "http://git.iximeow.net/yaxpeax-msp430/"
+description = "msp430 decoders for the yaxpeax project"
 
 [dependencies]
 yaxpeax-arch = { path = "../../yaxpeax-arch" }
