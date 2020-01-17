@@ -1,8 +1,8 @@
 extern crate yaxpeax_arch;
-extern crate yaxpeax_msp430_mc;
+extern crate yaxpeax_msp430;
 
 use yaxpeax_arch::{Arch, Decoder};
-use yaxpeax_msp430_mc::{Opcode, MSP430};
+use yaxpeax_msp430::{Opcode, MSP430};
 
 #[test]
 fn test_decode() {

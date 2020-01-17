@@ -40,8 +40,8 @@ pub enum Width {
     W, B
 }
 
-impl Instruction {
-    pub fn blank() -> Instruction {
+impl Default for Instruction {
+    fn default() -> Instruction {
         Instruction {
             opcode: Opcode::Invalid(0xffff),
             op_width: Width::W,
@@ -144,16 +144,39 @@ impl yaxpeax_arch::Instruction for Instruction {
     fn well_defined(&self) -> bool { true }
 }
 
-#[derive(Default, Debug)]
-pub struct InstDecoder {}
+#[derive(Debug)]
+pub struct InstDecoder {
+    flags: u8
+}
+
+impl InstDecoder {
+    pub fn minimal() -> Self {
+        InstDecoder {
+            flags: 0
+        }
+    }
+
+    pub fn with_microcorruption(mut self) -> Self {
+        self.flags |= 1;
+        self
+    }
+
+    pub fn microcorruption_quirks(&self) -> bool {
+        (self.flags & 1) != 0
+    }
+}
+
+impl Default for InstDecoder {
+    fn default() -> Self {
+        InstDecoder {
+            flags: 0xff
+        }
+    }
+}
 
 impl Decoder<Instruction> for InstDecoder {
     type Error = DecodeError;
 
-    fn decode<T: IntoIterator<Item=u8>>(&self, bytes: T) -> Result<Instruction, Self::Error> {
-        let mut inst = Instruction::blank();
-        self.decode_into(&mut inst, bytes).map(|_: ()| inst)
-    }
     fn decode_into<T: IntoIterator<Item=u8>>(&self, inst: &mut Instruction, bytes: T) -> Result<(), Self::Error> {
         let mut bytes_iter = bytes.into_iter();
         let word: Vec<u8> = bytes_iter.by_ref().take(2).collect();
@@ -247,6 +270,10 @@ impl Decoder<Instruction> for InstDecoder {
             }, */
             instrword if instrword < 0x2000 => {
                 // microcorruption msp430 is non-standard and accepts invalid instructions..
+                if !self.microcorruption_quirks() {
+                    return Err(DecodeError::InvalidOpcode);
+                }
+
                 let (opcode_idx, operands) = ((instrword & 0x0380) >> 7, instrword & 0x7f);
                 match opcode_idx {
                     x if x < 6 => {
