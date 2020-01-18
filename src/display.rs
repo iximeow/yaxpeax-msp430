@@ -2,7 +2,7 @@ use ::{MSP430, Operand, Opcode, Instruction, Width, DecodeError};
 
 use std::fmt::{self, Display, Formatter};
 use std;
-use yaxpeax_arch::{Arch, Colorize, ColorSettings, NoColors, ShowContextual, YaxColors};
+use yaxpeax_arch::{Arch, Colorize, NoColors, ShowContextual, YaxColors};
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
@@ -23,7 +23,7 @@ impl fmt::Display for DecodeError {
 }
 
 /// No per-operand when contextualizing an instruction.
-struct NoContext;
+pub struct NoContext;
 
 impl <T: std::fmt::Write, Color: fmt::Display, Y: YaxColors<Color>> ShowContextual<<MSP430 as Arch>::Address, NoContext, Color, T, Y> for Instruction {
     fn contextualize(&self, _colors: &Y, _address: <MSP430 as Arch>::Address, _context: Option<&NoContext>, out: &mut T) -> std::fmt::Result {
@@ -50,7 +50,7 @@ impl <T: std::fmt::Write, Color: fmt::Display, Y: YaxColors<Color>> ShowContextu
 
 #[cfg(feature="std")]
 impl <T: std::fmt::Write, Color: fmt::Display, Y: YaxColors<Color>> ShowContextual<<MSP430 as Arch>::Address, [Option<String>], Color, T, Y> for Instruction {
-    fn contextualize(&self, _colors: Option<&ColorSettings>, _address: <MSP430 as Arch>::Address, _context: Option<&[Option<String>]>, out: &mut T) -> std::fmt::Result {
+    fn contextualize(&self, _colors: &Y, _address: <MSP430 as Arch>::Address, _context: Option<&[Option<String>]>, out: &mut T) -> std::fmt::Result {
         write!(out, "{}", self.opcode)?;
         match self.op_width {
             Width::B => { write!(out, ".b")? },

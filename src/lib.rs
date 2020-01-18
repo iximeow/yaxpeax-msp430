@@ -11,6 +11,7 @@ extern crate termion;
 use yaxpeax_arch::{Arch, Decoder, LengthedInstruction};
 
 mod display;
+pub use display::NoContext;
 
 #[cfg(feature="use-serde")]
 #[derive(Debug, Serialize, Deserialize)]
