@@ -1,17 +1,17 @@
 [package]
 
 name = "yaxpeax-msp430"
-version = "0.0.1"
+version = "0.0.3"
 authors = [ "iximeow <me@iximeow.net>" ]
 license = "0BSD"
 repository = "http://git.iximeow.net/yaxpeax-msp430/"
 description = "msp430 decoders for the yaxpeax project"
 
 [dependencies]
-yaxpeax-arch = { version = "0.0.2", default-features = false, features = [] }
+yaxpeax-arch = { version = "0.0.3", default-features = false, features = [] }
 "termion" = "1.4.0"
-"serde" = "*"
-"serde_derive" = "*"
+"serde" = { version = "1.0", optional = true }
+"serde_derive" = { version = "1.0", optional = true }
 
 [[test]]
 name = "test"
