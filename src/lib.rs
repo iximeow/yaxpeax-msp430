@@ -8,7 +8,7 @@ extern crate serde;
 extern crate yaxpeax_arch;
 extern crate termion;
 
-use yaxpeax_arch::{Arch, Decoder, LengthedInstruction};
+use yaxpeax_arch::{Arch, AddressDiff, Decoder, LengthedInstruction};
 
 mod display;
 pub use display::NoContext;
@@ -52,9 +52,9 @@ impl Default for Instruction {
 }
 
 impl LengthedInstruction for Instruction {
-    type Unit = <MSP430 as Arch>::Address;
+    type Unit = AddressDiff<<MSP430 as Arch>::Address>;
     fn min_size() -> Self::Unit {
-        2
+        AddressDiff::from_const(2)
     }
     fn len(&self) -> Self::Unit {
         let mut size = 2;
@@ -72,7 +72,7 @@ impl LengthedInstruction for Instruction {
             Operand::Absolute(_) => { size += 2; },
             _ => {}
         };
-        size
+        AddressDiff::from_const(size)
     }
 }
 
