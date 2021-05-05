@@ -6,7 +6,6 @@ extern crate serde;
 //use serde::{Serialize, Deserialize};
 
 extern crate yaxpeax_arch;
-extern crate termion;
 
 use yaxpeax_arch::{Arch, AddressDiff, Decoder, LengthedInstruction};
 
@@ -380,4 +379,3 @@ impl Decoder<Instruction> for InstDecoder {
         }
     }
 }
-
