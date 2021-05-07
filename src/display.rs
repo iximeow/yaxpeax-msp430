@@ -25,7 +25,7 @@ impl fmt::Display for DecodeError {
 /// No per-operand when contextualizing an instruction.
 pub struct NoContext;
 
-impl <T: std::fmt::Write, Color: fmt::Display, Y: YaxColors<Color>> ShowContextual<<MSP430 as Arch>::Address, NoContext, Color, T, Y> for Instruction {
+impl <T: std::fmt::Write, Y: YaxColors> ShowContextual<<MSP430 as Arch>::Address, NoContext, T, Y> for Instruction {
     fn contextualize(&self, _colors: &Y, _address: <MSP430 as Arch>::Address, _context: Option<&NoContext>, out: &mut T) -> std::fmt::Result {
         write!(out, "{}", self.opcode)?;
         match self.op_width {
@@ -49,7 +49,7 @@ impl <T: std::fmt::Write, Color: fmt::Display, Y: YaxColors<Color>> ShowContextu
 }
 
 #[cfg(feature="std")]
-impl <T: std::fmt::Write, Color: fmt::Display, Y: YaxColors<Color>> ShowContextual<<MSP430 as Arch>::Address, [Option<String>], Color, T, Y> for Instruction {
+impl <T: std::fmt::Write, Y: YaxColors> ShowContextual<<MSP430 as Arch>::Address, [Option<String>], T, Y> for Instruction {
     fn contextualize(&self, _colors: &Y, _address: <MSP430 as Arch>::Address, _context: Option<&[Option<String>]>, out: &mut T) -> std::fmt::Result {
         write!(out, "{}", self.opcode)?;
         match self.op_width {
@@ -116,7 +116,7 @@ impl Display for Operand {
     }
 }
 
-impl <T: std::fmt::Write, Color: fmt::Display, Y: YaxColors<Color>> Colorize<T, Color, Y> for Operand {
+impl <T: std::fmt::Write, Y: YaxColors> Colorize<T, Y> for Operand {
     fn colorize(&self, _colors: &Y, out: &mut T) -> std::fmt::Result {
         fn signed_hex(num: i16) -> String {
             if num >= 0 {
