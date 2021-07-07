@@ -7,23 +7,20 @@ extern crate serde;
 
 extern crate yaxpeax_arch;
 
-use yaxpeax_arch::{Arch, AddressDiff, Decoder, LengthedInstruction};
+use yaxpeax_arch::{Arch, AddressDiff, Decoder, LengthedInstruction, Reader, StandardDecodeError, U16le};
 
 mod display;
 pub use display::NoContext;
 
-#[cfg(feature="use-serde")]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct MSP430;
-
-#[cfg(not(feature="use-serde"))]
+#[cfg_attr(feature="use-serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct MSP430;
 
 impl Arch for MSP430 {
     type Address = u16;
+    type Word = U16le;
     type Instruction = Instruction;
-    type DecodeError = DecodeError;
+    type DecodeError = StandardDecodeError;
     type Decoder = InstDecoder;
     type Operand = Operand;
 }
@@ -126,19 +123,6 @@ pub enum Operand {
     Nothing
 }
 
-#[derive(Debug, PartialEq)]
-pub enum DecodeError {
-    ExhaustedInput,
-    InvalidOpcode,
-    InvalidOperand,
-}
-
-impl yaxpeax_arch::DecodeError for DecodeError {
-    fn data_exhausted(&self) -> bool { self == &DecodeError::ExhaustedInput }
-    fn bad_opcode(&self) -> bool { self == &DecodeError::InvalidOpcode }
-    fn bad_operand(&self) -> bool { self == &DecodeError::InvalidOperand }
-}
-
 impl yaxpeax_arch::Instruction for Instruction {
     // TODO: this is wrong!!
     fn well_defined(&self) -> bool { true }
@@ -174,10 +158,7 @@ impl Default for InstDecoder {
     }
 }
 
-impl Decoder<Instruction> for InstDecoder {
-    type Error = DecodeError;
-
-    fn decode_into<T: IntoIterator<Item=u8>>(&self, inst: &mut Instruction, bytes: T) -> Result<(), Self::Error> {
+/*
         let mut bytes_iter = bytes.into_iter();
         let word: Vec<u8> = bytes_iter.by_ref().take(2).collect();
 
@@ -186,42 +167,32 @@ impl Decoder<Instruction> for InstDecoder {
             [low, high] => (high as u16) << 8 | (low as u16),
             _ => unreachable!()
         };
+        */
 
-        fn decode_operand<T: Iterator<Item=u8>>(bytes: &mut T, reg: u8, mode: u8, oper: &mut Operand) -> bool {
+impl Decoder<MSP430> for InstDecoder {
+    fn decode_into<T: Reader<<MSP430 as Arch>::Address, <MSP430 as Arch>::Word>>(&self, inst: &mut Instruction, words: &mut T) -> Result<(), <MSP430 as Arch>::DecodeError> {
+        let fullword = words.next()?.0;
+
+        fn decode_operand<T: Reader<<MSP430 as Arch>::Address, <MSP430 as Arch>::Word>>(words: &mut T, reg: u8, mode: u8, oper: &mut Operand) -> Result<(), StandardDecodeError> {
             *oper = match reg {
                 0 => {
                     if mode == 0 {
                         Operand::Register(reg)
                     } else if mode == 1 {
-                        let next = match bytes.take(2).collect::<Vec<u8>>()[..] {
-                            [] | [_] => { return false; },
-                            [low, high] => { ((high as u16) << 8) | (low as u16) },
-                            _ => { unreachable!() }
-                        };
-                        Operand::Symbolic(next)
+                        Operand::Symbolic(words.next()?.0)
                     } else if mode == 2 {
                         Operand::RegisterIndirect(reg)
                     } else if mode == 3 {
-                        let next = match bytes.take(2).collect::<Vec<u8>>()[..] {
-                            [] | [_] => { return false; },
-                            [low, high] => { ((high as u16) << 8) | (low as u16) },
-                            _ => { unreachable!() }
-                        };
-                        Operand::Immediate(next)
+                        Operand::Immediate(words.next()?.0)
                     } else {
-                        return false;
+                        return Err(StandardDecodeError::InvalidOperand);
                     }
                 },
                 2 => {
                     match mode {
                         0 => { Operand::Register(reg) },
                         1 => {
-                            let next = match bytes.take(2).collect::<Vec<u8>>()[..] {
-                                [] | [_] => { return false; },
-                                [low, high] => { ((high as u16) << 8) | (low as u16) },
-                                _ => { unreachable!() }
-                            };
-                            Operand::Absolute(next)
+                            Operand::Absolute(words.next()?.0)
                         },
                         2 => { Operand::Const8 },
                         3 => { Operand::Const4 },
@@ -241,12 +212,7 @@ impl Decoder<Instruction> for InstDecoder {
                     match mode {
                         0 => { Operand::Register(reg) },
                         1 => {
-                            let next = match bytes.take(2).collect::<Vec<u8>>()[..] {
-                                [] | [_] => { return false; },
-                                [low, high] => { ((high as u16) << 8) | (low as u16) },
-                                _ => { unreachable!() }
-                            };
-                            Operand::Indexed(reg, next)
+                            Operand::Indexed(reg, words.next()?.0)
                         },
                         2 => { Operand::RegisterIndirect(reg) },
                         3 => { Operand::IndirectAutoinc(reg) },
@@ -254,7 +220,7 @@ impl Decoder<Instruction> for InstDecoder {
                     }
                 }
             };
-            return true;
+            return Ok(());
         }
 
         inst.op_width = Width::W;
@@ -271,7 +237,7 @@ impl Decoder<Instruction> for InstDecoder {
             instrword if instrword < 0x2000 => {
                 // microcorruption msp430 is non-standard and accepts invalid instructions..
                 if !self.microcorruption_quirks() {
-                    return Err(DecodeError::InvalidOpcode);
+                    return Err(StandardDecodeError::InvalidOpcode);
                 }
 
                 let (opcode_idx, operands) = ((instrword & 0x0380) >> 7, instrword & 0x7f);
@@ -290,7 +256,7 @@ impl Decoder<Instruction> for InstDecoder {
                         } else {
                             if x == 1 || x == 3 || x == 5 {
                                 inst.opcode = Opcode::Invalid(instrword);
-                                return Err(DecodeError::InvalidOpcode);
+                                return Err(StandardDecodeError::InvalidOpcode);
                             }
                             Width:: B
                         };
@@ -299,10 +265,7 @@ impl Decoder<Instruction> for InstDecoder {
                             ((instrword & 0x0030) >> 4) as u8,
                             (instrword & 0x000f) as u8
                         );
-                        if !decode_operand(&mut bytes_iter, source, As, &mut inst.operands[0]) {
-                            inst.opcode = Opcode::Invalid(instrword);
-                            return Err(DecodeError::InvalidOperand);
-                        };
+                        decode_operand(words, source, As, &mut inst.operands[0])?;
                         inst.operands[1] = Operand::Nothing;
                         Ok(())
                     },
@@ -314,12 +277,12 @@ impl Decoder<Instruction> for InstDecoder {
                             Ok(())
                         } else {
                             inst.opcode = Opcode::Invalid(instrword);
-                            return Err(DecodeError::InvalidOperand);
+                            return Err(StandardDecodeError::InvalidOperand);
                         }
                     }
                     7 => {
                         inst.opcode = Opcode::Invalid(instrword);
-                        return Err(DecodeError::InvalidOpcode);
+                        return Err(StandardDecodeError::InvalidOpcode);
                     }
                     _ => {
                         unreachable!();
@@ -366,14 +329,8 @@ impl Decoder<Instruction> for InstDecoder {
                     ((instrword & 0x0030) >> 4) as u8,
                     (instrword & 0x000f) as u8
                 );
-                if !decode_operand(&mut bytes_iter, source, As, &mut inst.operands[0]) {
-                    inst.opcode = Opcode::Invalid(instrword);
-                    return Err(DecodeError::InvalidOperand);
-                }
-                if !decode_operand(&mut bytes_iter, dest, Ad, &mut inst.operands[1]) {
-                    inst.opcode = Opcode::Invalid(instrword);
-                    return Err(DecodeError::InvalidOperand);
-                }
+                decode_operand(words, source, As, &mut inst.operands[0])?;
+                decode_operand(words, dest, Ad, &mut inst.operands[1])?;
                 Ok(())
             }
         }

@@ -1,26 +1,26 @@
 extern crate yaxpeax_arch;
 extern crate yaxpeax_msp430;
 
-use yaxpeax_arch::{Arch, Decoder};
+use yaxpeax_arch::{Arch, Decoder, U8Reader};
 use yaxpeax_msp430::{Opcode, MSP430};
 
 #[test]
 fn test_decode() {
-    let decoder = <MSP430 as Arch>::Decoder::default();
+    fn decode(bytes: &[u8]) -> yaxpeax_msp430::Instruction {
+        let decoder = <MSP430 as Arch>::Decoder::default();
+        let mut reader = U8Reader::new(bytes);
+        decoder.decode(&mut reader).unwrap()
+    }
 
-    let data = [0x02, 0x12];
-    let instr = decoder.decode(data.iter().cloned()).unwrap();
+    let instr = decode(&[0x02, 0x12][..]);
     assert!(instr.opcode == Opcode::PUSH);
 
-    let data = [0xb1, 0x92, 0x8d, 0x49];
-    let instr = decoder.decode(data.iter().cloned()).unwrap();
+    let instr = decode(&[0xb1, 0x92, 0x8d, 0x49][..]);
     assert!(instr.opcode == Opcode::CMP);
 
-    let data = [0x12, 0x00, 0x3f, 0x40];
-    let instr = decoder.decode(data.iter().cloned()).unwrap();
+    let instr = decode(&[0x12, 0x00, 0x3f, 0x40][..]);
     assert!(instr.opcode == Opcode::RRC);
 
-    let data = [0x20, 0x0e];
-    let instr = decoder.decode(data.iter().cloned()).unwrap();
+    let instr = decode(&[0x20, 0x0e][..]);
     assert!(instr.opcode == Opcode::PUSH);
 }

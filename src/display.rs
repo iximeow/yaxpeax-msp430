@@ -1,6 +1,6 @@
-use ::{MSP430, Operand, Opcode, Instruction, Width, DecodeError};
+use ::{MSP430, Operand, Opcode, Instruction, Width};
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{Display, Formatter};
 use std;
 use yaxpeax_arch::{Arch, Colorize, NoColors, ShowContextual, YaxColors};
 
@@ -9,16 +9,6 @@ impl Display for Instruction {
         let mut s = String::new();
         self.contextualize(&NoColors, 0, Some(&NoContext), &mut s).unwrap();
         write!(f, "{}", s)
-    }
-}
-
-impl fmt::Display for DecodeError {
-    fn fmt(&self, f:  &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            DecodeError::ExhaustedInput => write!(f, "exhausted input"),
-            DecodeError::InvalidOpcode => write!(f, "invalid opcode"),
-            DecodeError::InvalidOperand => write!(f, "invalid operand"),
-        }
     }
 }
 
