@@ -8,7 +8,7 @@ extern crate serde;
 extern crate yaxpeax_arch;
 
 use yaxpeax_arch::{Arch, AddressDiff, Decoder, LengthedInstruction, Reader, StandardDecodeError, U16le};
-use yaxpeax_arch::{AnnotatingDecoder, DescriptionSink, NullSink};
+use yaxpeax_arch::annotation::{AnnotatingDecoder, DescriptionSink, NullSink};
 
 mod display;
 pub use display::NoContext;
@@ -195,6 +195,15 @@ pub struct MSP430FieldDescription {
     value: MSP430Field,
     // an opaque identifier to link different parts of FieldDescription at different offsets.
     id: u32,
+}
+
+impl yaxpeax_arch::annotation::FieldDescription for MSP430FieldDescription {
+    fn id(&self) -> u32 {
+        self.id
+    }
+    fn is_separator(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
